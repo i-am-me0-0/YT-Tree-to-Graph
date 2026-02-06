@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>YT Tree → Graph — Start Crawl</title>
+  <link rel="stylesheet" href="/frontend/styles.css">
+  <style>
+    #viewGraphBtn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      background: #2196F3;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #viewGraphBtn:hover {
+      background: #1976D2;
+    }
+  </style>
+</head>
+<body>
+  <a href="/frontend/graph.html" id="viewGraphBtn">View Graph</a>
+  <h1>YT Tree → Graph</h1>
+  <form id="crawlForm">
+    <input id="url" type="text" placeholder="Paste YouTube URL" style="width:60%" />
+    <span id="url_title" style="margin-left:10px;color:#666;font-size:14px;"></span>
+    <br><br>
+    <input id="part2_url" type="text" placeholder="Paste Part 2 URL (optional)" style="width:60%" />
+    <span id="part2_title" style="margin-left:10px;color:#666;font-size:14px;"></span>
+    <br><br>
+    <input id="trailer_url" type="text" placeholder="Paste Trailer URL (optional) or none if no trailer exists" style="width:60%" />
+    <span id="trailer_title" style="margin-left:10px;color:#666;font-size:14px;"></span>
+    <br><br>
+    <input id="stop_urls" type="text" placeholder="Stop URLs (comma-separated, optional) - crawl node but not its children" style="width:60%" />
+    <div id="stop_titles" style="margin-left:10px;margin-top:5px;color:#666;font-size:13px;"></div>
+    <br><br>
+    <input id="bonus_urls" type="text" placeholder="Bonus URLs (comma-separated, optional) - bloopers, behind the scenes, etc." style="width:60%" />
+    <div id="bonus_titles" style="margin-left:10px;margin-top:5px;color:#666;font-size:13px;"></div>
+    <br><br>
+    <button type="submit">Start Crawl</button>
+  </form>
+
+  <div id="statusBox">
+    State: <span id="state">idle</span>
+    Nodes: <span id="nodes">0</span>
+    Edges: <span id="edges">0</span>
+  </div>
+
+  <div id="actions"></div>
+
+  <script>
+    const form = document.getElementById('crawlForm');
+    const stateEl = document.getElementById('state');
+    const nodesEl = document.getElementById('nodes');
+    const edgesEl = document.getElementById('edges');
+    const actions = document.getElementById('actions');
+    let polling = null;
+
+    function extractVideoId(url) {
+      if (!url) return null;
+      if (url.includes('v=')) return url.split('v=')[1].split('&')[0];
+      if (url.includes('youtu.be/')) return url.split('youtu.be/')[1].split('?')[0];
+      return null;
+    }
+
+    async function fetchVideoTitle(videoId, displayElement) {
+      if (!videoId) {
+        displayElement.textContent = '';
+        return;
+      }
+      displayElement.textContent = 'Loading...';
+      try {
+        const res = await fetch(`/video_title?id=${videoId}`);
+        const data = await res.json();
+        if (data.title) {
+          displayElement.textContent = data.title;
+        } else {
+          displayElement.textContent = '';
+        }
+      } catch (e) {
+        displayElement.textContent = '';
+      }
+    }
+
+    document.getElementById('url').addEventListener('input', async (e) => {
+      const videoId = extractVideoId(e.target.value);
+      await fetchVideoTitle(videoId, document.getElementById('url_title'));
+    });
+
+    document.getElementById('trailer_url').addEventListener('input', async (e) => {
+      const videoId = extractVideoId(e.target.value);
+      await fetchVideoTitle(videoId, document.getElementById('trailer_title'));
+    });
+
+    document.getElementById('part2_url').addEventListener('input', async (e) => {
+      const videoId = extractVideoId(e.target.value);
+      await fetchVideoTitle(videoId, document.getElementById('part2_title'));
+    });
+
+    document.getElementById('stop_urls').addEventListener('input', async (e) => {
+      const urls = e.target.value.split(',').map(u => u.trim()).filter(u => u);
+      const stopTitlesDiv = document.getElementById('stop_titles');
+      
+      if (urls.length === 0) {
+        stopTitlesDiv.innerHTML = '';
+        return;
+      }
+      
+      stopTitlesDiv.innerHTML = 'Loading...';
+      const titles = [];
+      
+      for (const url of urls) {
+        const videoId = extractVideoId(url);
+        if (videoId) {
+          try {
+            const res = await fetch(`/video_title?id=${videoId}`);
+            const data = await res.json();
+            if (data.title) {
+              titles.push(`• ${data.title}`);
+            }
+          } catch (e) {
+            // Skip if error
+          }
+        }
+      }
+      
+      stopTitlesDiv.innerHTML = titles.join('<br>');
+    });
+
+    document.getElementById('bonus_urls').addEventListener('input', async (e) => {
+      const urls = e.target.value.split(',').map(u => u.trim()).filter(u => u);
+      const bonusTitlesDiv = document.getElementById('bonus_titles');
+      
+      if (urls.length === 0) {
+        bonusTitlesDiv.innerHTML = '';
+        return;
+      }
+      
+      bonusTitlesDiv.innerHTML = 'Loading...';
+      const titles = [];
+      
+      for (const url of urls) {
+        const videoId = extractVideoId(url);
+        if (videoId) {
+          try {
+            const res = await fetch(`/video_title?id=${videoId}`);
+            const data = await res.json();
+            if (data.title) {
+              titles.push(`• ${data.title}`);
+            }
+          } catch (e) {
+            // Skip if error
+          }
+        }
+      }
+      
+      bonusTitlesDiv.innerHTML = titles.join('<br>');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      const part2_url = document.getElementById('part2_url').value.trim();
+      const stop_urls = document.getElementById('stop_urls').value.trim();
+      const trailer_url = document.getElementById('trailer_url').value.trim();
+      const bonus_urls = document.getElementById('bonus_urls').value.trim();
+      if (!url) return alert('Enter URL');
+      await fetch('/crawl', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url, part2_url, stop_urls, trailer_url, bonus_urls})});
+      startPolling();
+    });
+
+    async function updateStatus(){
+      try{
+        const r = await fetch('/status');
+        const j = await r.json();
+        stateEl.textContent = j.state;
+        nodesEl.textContent = j.nodes || 0;
+        edgesEl.textContent = j.edges || 0;
+        if (j.state === 'done' || j.state === 'error'){
+          stopPolling();
+          actions.innerHTML = '<a href="/frontend/graph.html">Open Graph</a>';
+        }
+      }catch(e){
+        console.error(e);
+      }
+    }
+
+    function startPolling(){
+      if (polling) return;
+      polling = setInterval(updateStatus, 1500);
+      updateStatus();
+    }
+    function stopPolling(){
+      clearInterval(polling); polling = null;
+    }
+  </script>
+</body>
+</html>
