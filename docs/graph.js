@@ -1,13 +1,17 @@
 (function(){
   const width = 3000, height = 2500;
   const svg = d3.select('#graph').append('svg').attr('width', width).attr('height', height);
-  const container = svg.append('g').attr('transform', 'translate(100,50)');
+  const container = svg.append('g'); // Remove the hardcoded translate
 
   // zoom/pan
   const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (event) => {
     container.attr('transform', event.transform);
   });
   svg.call(zoom);
+  
+  // Set initial zoom to account for the offset we used to have
+  const initialTransform = d3.zoomIdentity.translate(100, 50);
+  svg.call(zoom.transform, initialTransform);
 
   let currentGraphKey = null;
   let allGraphData = null;
@@ -376,8 +380,7 @@
       const outgoingIds = d.data.outgoing ? d.data.outgoing.map(o => o.to) : [];
       const directIncomingIds = new Set(); if(d.data.incoming_from) { d.data.incoming_from.forEach(incoming => { directIncomingIds.add(incoming.from); }); }
       const allIncomingIds = new Set(); const visited = new Set();
-      function findAllIncoming(currentNodeId, depth = 0) { if(depth > 10 || visited.has(currentNodeId)) return; visited.add(currentNodeId); let currentNode = null; node.each(function(nodeData) { if(nodeData.data.id === currentNodeId) currentNode = nodeData.data; }); if(currentNode && currentNode.incoming_from) { currentNode.incoming_from.forEach(incoming => { allIncomingIds.add(incoming.from); findAllIncoming(incoming.from, depth + 1); }); } }
-      findAllIncoming(nodeId);
+      function findAllIncoming(currentNodeId, depth = 0) { if(depth > 10 || visited.has(currentNodeId)) return; visited.add(currentNodeId); let currentNode = null; node.each(function(nodeData) { if(nodeData.data.id === currentNodeId) currentNode = nodeData.data; }); if(currentNode && currentNode.incoming_from) {currentNode.incoming_from.forEach(incoming => {if(!loopBackNodes.has(incoming.from)) {allIncomingIds.add(incoming.from);findAllIncoming(incoming.from, depth + 1);}});}}directIncomingIds.forEach(incomingId => {findAllIncoming(incomingId);});
       node.each(function(nodeData) {
         const isOutgoing = outgoingIds.includes(nodeData.data.id);
         const isDirectIncoming = directIncomingIds.has(nodeData.data.id);
@@ -393,5 +396,6 @@
     link.on('mouseover', function(event, d) { if(isLocked) return; d3.select(this).attr('stroke','#FF9800').attr('stroke-width', 4); container.selectAll('.arrow-head').each(function(linkData) { if(linkData && linkData.source === d.source && linkData.target === d.target) { d3.select(this).attr('fill','#FF9800'); } }); node.each(function(nodeData) { if(nodeData.data.id === d.source || nodeData.data.id === d.target) { d3.select(this).select('circle').attr('stroke','#FF9800').attr('stroke-width', 5); } }); }).on('mouseout', function() { if(isLocked) return; d3.select(this).attr('stroke','#666').attr('stroke-width', 2); container.selectAll('.arrow-head').attr('fill','#666'); node.selectAll('circle').attr('stroke','#333').attr('stroke-width', 3); }).on('click', function(event, d) { event.stopPropagation(); isLocked = true; lockedNodeId = null; d3.select('#clear-lock-btn').style('display', 'block'); const mouseoverEvent = new MouseEvent('mouseover'); this.dispatchEvent(mouseoverEvent); });
 
     link.append('title').text(d=>d.label);
+    setTimeout(() => {const rootNode = hierarchyRoot.descendants().find(n => n.data.id === root.id);if(rootNode) {const viewportWidth = window.innerWidth;const viewportHeight = window.innerHeight;const scale = 0.7;const transform = d3.zoomIdentity.translate(viewportWidth / 2 - rootNode.x * scale, viewportHeight / 3 - rootNode.y * scale).scale(scale);svg.call(zoom.transform, transform);}}, 100);
   }
 })();

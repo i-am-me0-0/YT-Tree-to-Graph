@@ -1,13 +1,17 @@
 (function(){
   const width = 3000, height = 2500;
   const svg = d3.select('#graph').append('svg').attr('width', width).attr('height', height);
-  const container = svg.append('g').attr('transform', 'translate(100,50)');
+  const container = svg.append('g'); // Remove the hardcoded translate
 
   // zoom/pan
   const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (event) => {
     container.attr('transform', event.transform);
   });
   svg.call(zoom);
+
+  // Set initial zoom to account for the offset we used to have
+  const initialTransform = d3.zoomIdentity.translate(100, 50);
+  svg.call(zoom.transform, initialTransform);
 
   let currentGraphKey = null;
   let allGraphData = null;
@@ -632,44 +636,9 @@
     
     node.append('title').text(d=>`${d.data.title}\n${d.data.clean_description || ''}`);
     
-    node.append('title').text(d=>`${d.data.title}\n${d.data.clean_description || ''}`);
+    // node.append('title').text(d=>`${d.data.title}\n${d.data.clean_description || ''}`);
 
-    // Breadcrumb
-    // function showBreadcrumb(nodeData) {
-    //   const breadcrumb = document.getElementById('breadcrumb');
-    //   const path = [];
-    //   let current = nodeData;
-      
-    //   while(current) {
-    //     path.unshift(current);
-    //     current = current.parent;
-    //   }
-      
-    //   breadcrumb.innerHTML = path.map((n, i) => {
-    //     const title = n.data.title.length > 30 ? n.data.title.slice(0, 30) + '...' : n.data.title;
-    //     const separator = i < path.length - 1 ? '<span class="breadcrumb-separator">\u2192</span>' : '';
-    //     return `<span class="breadcrumb-item" data-id="${n.data.id}">${title}</span>${separator}`;
-    //   }).join('');
-      
-    //   breadcrumb.classList.add('visible');
-      
-    //   breadcrumb.querySelectorAll('.breadcrumb-item').forEach(item => {
-    //     item.addEventListener('click', () => {
-    //       const id = item.dataset.id;
-    //       const targetNode = hierarchyRoot.descendants().find(n => n.data.id === id);
-    //       if(targetNode) {
-    //         const transform = d3.zoomIdentity
-    //           .translate(width / 2 - targetNode.x, height / 2 - targetNode.y)
-    //           .scale(1.2);
-    //         svg.transition().duration(750).call(zoom.transform, transform);
-    //       }
-    //     });
-    //   });
-    // }
-    
-    // function hideBreadcrumb() {
-    //   document.getElementById('breadcrumb').classList.remove('visible');
-    // }
+
 
     // Spotlight + hover with ALL incoming paths
     node.on('mouseover', function(event, d) {
@@ -677,6 +646,7 @@
       if(isLocked) return;
       
       const nodeId = d.data.id;
+      // console.log('Hovering node:', nodeId, 'incoming_from:', d.data.incoming_from);
       const outgoingIds = d.data.outgoing ? d.data.outgoing.map(o => o.to) : [];
       
       // Get direct incoming nodes (immediate parents)
@@ -686,11 +656,11 @@
           directIncomingIds.add(incoming.from);
         });
       }
-      
+
       // Get ALL incoming nodes recursively (all possible ways to reach this node)
       const allIncomingIds = new Set();
       const visited = new Set();
-      
+
       function findAllIncoming(currentNodeId, depth = 0) {
         // Limit recursion depth to prevent infinite loops
         if(depth > 10 || visited.has(currentNodeId)) return;
@@ -706,13 +676,21 @@
         
         if(currentNode && currentNode.incoming_from) {
           currentNode.incoming_from.forEach(incoming => {
-            allIncomingIds.add(incoming.from);
-            findAllIncoming(incoming.from, depth + 1);
+            // Don't add or recurse through loop-back nodes (pink nodes)
+            if(!loopBackNodes.has(incoming.from)) {
+              allIncomingIds.add(incoming.from);
+              findAllIncoming(incoming.from, depth + 1);
+            }
           });
         }
       }
+
+      // Start recursion from ALL direct incoming nodes, not just the current node
+      directIncomingIds.forEach(incomingId => {
+        findAllIncoming(incomingId);
+      });
       
-      findAllIncoming(nodeId);
+      // findAllIncoming(nodeId);
       
       // Dim all nodes (slightly transparent)
       node.each(function(nodeData) {
@@ -861,5 +839,23 @@
     });
 
     link.append('title').text(d=>d.label);
+    // Center on root node on initial load
+    setTimeout(() => {
+      const rootNode = hierarchyRoot.descendants().find(n => n.data.id === root.id);
+      if(rootNode) {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const scale = 0.7; // Your desired zoom level
+        
+        const transform = d3.zoomIdentity
+          .translate(
+            viewportWidth / 2 - rootNode.x * scale, 
+            viewportHeight / 3 - rootNode.y * scale
+          )
+          .scale(scale);
+        
+        svg.call(zoom.transform, transform);
+      }
+    }, 100);
   }
 })();
