@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>YouTube Interactive Spotcheck</title>
+
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+  margin: 0;
+  padding: 20px;
+}
+
+select, button {
+  font-size: 15px;
+  padding: 6px 10px;
+  margin-right: 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.video-card {
+  margin-top: 20px;
+  position: relative;
+  width: 640px;
+}
+
+.video-thumb {
+  width: 100%;
+  border-radius: 6px;
+}
+
+.endscreen {
+  position: absolute;
+  inset: 0;
+}
+
+.card {
+  position: absolute;
+  border: 2px solid #ff5555;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  padding: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 10px rgba(255,80,80,0.8);
+  z-index: 10;
+}
+
+.card img {
+  width: 100%;
+  display: block;
+  border-radius: 3px;
+}
+
+.meta {
+  margin-top: 10px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.time {
+  font-weight: bold;
+  margin-top: 2px;
+}
+</style>
+</head>
+
+<body>
+<h1>YouTube Interactive Spotcheck</h1>
+
+<div>
+  <label>
+    Select video:
+    <select id="videoSelect"></select>
+  </label>
+
+  <button id="openYT">Open on YouTube ↗</button>
+</div>
+
+<div id="container"></div>
+
+<script>
+const graphsUrl = 'graphs.json';
+const cardsUrl  = 'card_data_extracted.json';
+
+let graphs, cards;
+let currentVideoId = null;
+
+function mmss(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2,'0')}`;
+}
+
+Promise.all([
+  fetch(graphsUrl).then(r => r.json()),
+  fetch(cardsUrl).then(r => r.json())
+]).then(([g, c]) => {
+  graphs = g;
+  cards = c;
+
+  const select = document.getElementById('videoSelect');
+
+  Object.keys(cards).forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id;
+    select.appendChild(opt);
+  });
+
+  select.onchange = () => render(select.value);
+  document.getElementById('openYT').onclick = () => {
+    if (currentVideoId) {
+      window.open(`https://www.youtube.com/watch?v=${currentVideoId}`, '_blank');
+    }
+  };
+
+  render(select.value);
+});
+
+function render(videoId) {
+  currentVideoId = videoId;
+
+  const data = cards[videoId];
+  const container = document.getElementById('container');
+  const select = document.getElementById('videoSelect');
+
+  select.value = videoId;
+  container.innerHTML = '';
+
+  if (!data) {
+    container.textContent = 'No data';
+    return;
+  }
+
+  const video = document.createElement('div');
+  video.className = 'video-card';
+
+  const thumb = document.createElement('img');
+  thumb.className = 'video-thumb';
+  thumb.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  video.appendChild(thumb);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'endscreen';
+
+  (data.endscreen || []).forEach(e => {
+    if (!e.targetId) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    card.style.left  = (e.left * 100) + '%';
+    card.style.top   = (e.top * 100) + '%';
+    card.style.width = (e.width * 100) + '%';
+
+    card.onclick = () => {
+      if (cards[e.targetId]) {
+        render(e.targetId);
+      } else {
+        alert(`Target ${e.targetId} not in dataset`);
+      }
+    };
+
+    const img = document.createElement('img');
+    img.src = `https://i.ytimg.com/vi/${e.targetId}/mqdefault.jpg`;
+    card.appendChild(img);
+
+    const label = document.createElement('div');
+    label.textContent = e.title || e.targetId;
+    card.appendChild(label);
+
+    const time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = `${mmss(e.startMs)} → ${mmss(e.endMs)}`;
+    card.appendChild(time);
+
+    overlay.appendChild(card);
+  });
+
+  video.appendChild(overlay);
+  container.appendChild(video);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.innerHTML = `
+    <div><strong>Title:</strong> ${data.title}</div>
+    <div><strong>Duration:</strong> ${mmss(data.lengthSeconds * 1000)}</div>
+    <div><strong>Endscreen items:</strong> ${data.endscreen.length}</div>
+  `;
+  container.appendChild(meta);
+}
+</script>
+</body>
+</html>

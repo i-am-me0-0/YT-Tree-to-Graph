@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YT Tree → Graph — Graph</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <link rel="stylesheet" href="styles.css">
@@ -41,6 +42,33 @@
       padding-top: 10px;
       margin-top: 5px;
     }
+    /* Style when using a collapsible details element */
+    #instructions summary {
+      color: #fff;
+      font-weight: bold;
+      list-style: none;
+      cursor: pointer;
+      margin-bottom: 8px;
+      outline: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Arrow indicator: closed/open */
+    #instructions summary::before {
+      content: '▸';
+      display: inline-block;
+      width: 1em;
+      text-align: center;
+      transition: transform 0.12s ease;
+      color: #fff;
+      font-size: 14px;
+      line-height: 1;
+    }
+    #instructions[open] summary::before {
+      content: '▾';
+    }
+    #instructions summary::-webkit-details-marker { display: none; }
     #instructions strong {
       color: #fff;
     }
@@ -50,6 +78,11 @@
 </head>
 <body>
   <div id="controls">
+    <label for="about">About:</label>
+    <div id="about" style="color:#ccc; font-size:13px; margin-bottom:10px;">
+      This webpage converts a YouTube "tree" (videos and their outgoing choices) into a directed graph. 
+      Each node is a video, links represent choices or direct connections.
+    </div>
     <label for="graphSelect">Select Graph:</label>
     <select id="graphSelect"></select>
     <div id="stats" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; font-size: 12px; color: #bbb;">
@@ -57,29 +90,32 @@
       • <strong>Nodes:</strong> <span id="nodeCount">0</span><br>
       • <strong>Connections:</strong> <span id="connectionCount">0</span>
     </div>
-    <div id="instructions">
-      <strong>Controls:</strong><br>
-      • <strong>Hover</strong> over nodes to highlight paths<br>
-      • <strong>Click</strong> to lock the highlight<br>
-      • <strong>Double-click</strong> to open video<br>
-      • Use <strong>Clear Lock</strong> button to unlock<br>
-      • <strong>Zoom/Pan</strong> with mouse wheel/drag<br>
-      <br>
-      <strong>Node Colors:</strong><br>
-      • <span style="color: #FFA000;">●</span> <strong>Amber</strong> = Bonus content<br>
-      • <span style="color: #81C784;">●</span> <strong>Light Green</strong> = Trailer<br>
-      • <span style="color: #4CAF50;">●</span> <strong>Green</strong> = Start nodes<br>
-      • <span style="color: #2196F3;">●</span> <strong>Blue</strong> = Regular choice nodes<br>
-      • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Stop nodes (not crawled further)<br>
-      • <span style="color: #FF9800;">●</span> <strong>Orange</strong> = Links to Part 2<br>
-      • <span style="color: #E91E63;">●</span> <strong>Pink</strong> = Loops back to start<br>
-      • <span style="color: #f44336;">●</span> <strong>Red</strong> = End nodes<br>
-      <br>
-      <strong>Highlight Colors:</strong><br>
-      • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Outgoing nodes<br>
-      • <span style="color: #FFC107;">●</span> <strong>Gold</strong> = Direct incoming<br>
-      • <span style="color: #00BCD4;">●</span> <strong>Cyan</strong> = Indirect incoming
-    </div>
+    <details id="instructions" open>
+      <summary>Controls & Info</summary>
+      <div id="instructions-content">
+        <strong>Controls:</strong><br>
+        • <strong>Hover</strong> over nodes to highlight paths<br>
+        • <strong>Click</strong> to lock the highlight<br>
+        • <strong>Double-click</strong> to open video<br>
+        • Use <strong>Clear Lock</strong> button to unlock<br>
+        • <strong>Zoom/Pan</strong> with mouse wheel/drag<br>
+        <br>
+        <strong>Node Colors:</strong><br>
+        • <span style="color: #FFA000;">●</span> <strong>Amber</strong> = Bonus content<br>
+        • <span style="color: #81C784;">●</span> <strong>Light Green</strong> = Trailer<br>
+        • <span style="color: #4CAF50;">●</span> <strong>Green</strong> = Start nodes<br>
+        • <span style="color: #2196F3;">●</span> <strong>Blue</strong> = Regular choice nodes<br>
+        • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Stop nodes (not crawled further)<br>
+        • <span style="color: #FF9800;">●</span> <strong>Orange</strong> = Links to Part 2<br>
+        • <span style="color: #E91E63;">●</span> <strong>Pink</strong> = Loops back to start<br>
+        • <span style="color: #f44336;">●</span> <strong>Red</strong> = End nodes<br>
+        <br>
+        <strong>Highlight Colors:</strong><br>
+        • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Outgoing nodes<br>
+        • <span style="color: #FFC107;">●</span> <strong>Gold</strong> = Direct incoming<br>
+        • <span style="color: #00BCD4;">●</span> <strong>Cyan</strong> = Indirect incoming
+      </div>
+    </details>
   </div>
   <div id="graph"></div>
   <script src="graph.js"></script>
