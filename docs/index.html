@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YT Tree → Graph — Graph</title>
+  <title>YT Tree → Graph</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="favicon.png" type="image/png">
   <style>
     #controls {
       position: fixed;
@@ -74,50 +75,109 @@
     }
     .dimmed { opacity: 0.15 !important; }
     .focused { opacity: 1 !important; }
+    /* Buttons in the controls box should match select styling */
+    #controls .menu-btn {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+    #controls .controls-header { display: flex; align-items: center; justify-content: space-between; gap: 8px;}
+    #controls .controls-header label { margin: 0; flex: 1; align-self: center; display: block; }
+    #controls .header-buttons { display: flex; gap: 8px; align-items: center; }
+    /* Collapsed state: hide everything except the header */
+    #controls.collapsed > :not(.controls-header) { display: none; }
+    #controls.collapsed .menu-btn#closeMenuBtn { display: none; }
+    #controls:not(.collapsed) .menu-btn#openMenuBtn { display: none; }
+    /* When collapsed hide the About label too (only show the buttons) */
+    #controls.collapsed .controls-header label { display: none; }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <label for="about">About:</label>
-    <div id="about" style="color:#ccc; font-size:13px; margin-bottom:10px;">
-      This webpage converts a YouTube "tree" (videos and their outgoing choices) into a directed graph. 
-      Each node is a video, links represent choices or direct connections.
-    </div>
-    <label for="graphSelect">Select Graph:</label>
-    <select id="graphSelect"></select>
-    <div id="stats" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; font-size: 12px; color: #bbb;">
-      <strong>Graph Stats:</strong><br>
-      • <strong>Nodes:</strong> <span id="nodeCount">0</span><br>
-      • <strong>Connections:</strong> <span id="connectionCount">0</span>
-    </div>
-    <details id="instructions" open>
-      <summary>Controls & Info</summary>
-      <div id="instructions-content">
-        <strong>Controls:</strong><br>
-        • <strong>Hover</strong> over nodes to highlight paths<br>
-        • <strong>Click</strong> to lock the highlight<br>
-        • <strong>Double-click</strong> to open video<br>
-        • Use <strong>Clear Lock</strong> button to unlock<br>
-        • <strong>Zoom/Pan</strong> with mouse wheel/drag<br>
-        <br>
-        <strong>Node Colors:</strong><br>
-        • <span style="color: #FFA000;">●</span> <strong>Amber</strong> = Bonus content<br>
-        • <span style="color: #81C784;">●</span> <strong>Light Green</strong> = Trailer<br>
-        • <span style="color: #4CAF50;">●</span> <strong>Green</strong> = Start nodes<br>
-        • <span style="color: #2196F3;">●</span> <strong>Blue</strong> = Regular choice nodes<br>
-        • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Stop nodes (not crawled further)<br>
-        • <span style="color: #FF9800;">●</span> <strong>Orange</strong> = Links to Part 2<br>
-        • <span style="color: #E91E63;">●</span> <strong>Pink</strong> = Loops back to start<br>
-        • <span style="color: #f44336;">●</span> <strong>Red</strong> = End nodes<br>
-        <br>
-        <strong>Highlight Colors:</strong><br>
-        • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Outgoing nodes<br>
-        • <span style="color: #FFC107;">●</span> <strong>Gold</strong> = Direct incoming<br>
-        • <span style="color: #00BCD4;">●</span> <strong>Cyan</strong> = Indirect incoming
+  <div id="menu">
+    
+    <div id="controls">
+      <div class="controls-header">
+        <label for="about">About:</label>
+        <div class="header-buttons">
+          <button class="menu-btn" id="closeMenuBtn">Close</button>
+          <button class="menu-btn" id="openMenuBtn">Open Menu</button>
+        </div>
       </div>
-    </details>
+      
+      <div id="about" style="color:#ccc; font-size:13px; margin-bottom:10px;">
+        This webpage converts a YouTube "tree" (videos and their outgoing choices) into a directed graph.
+        Each node is a video, links represent choices or direct connections.
+      </div>
+      <label for="graphSelect">Select Graph:</label>
+      <select id="graphSelect"></select>
+      <div id="stats" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; font-size: 12px; color: #bbb;">
+        <strong>Graph Stats:</strong><br>
+        • <strong>Nodes:</strong> <span id="nodeCount">0</span><br>
+        • <strong>Connections:</strong> <span id="connectionCount">0</span>
+      </div>
+      <details id="instructions" open>
+        <summary>Controls & Info</summary>
+        <div id="instructions-content">
+          <strong>Controls:</strong><br>
+          • <strong>Hover</strong> over nodes to highlight paths<br>
+          • <strong>Click</strong> to lock the highlight<br>
+          • <strong>Double-click</strong> to open video<br>
+          • Use <strong>Clear Lock</strong> button to unlock<br>
+          • <strong>Zoom/Pan</strong> with mouse wheel/drag<br>
+          <br>
+          <strong>Node Colors:</strong><br>
+          • <span style="color: #FFA000;">●</span> <strong>Amber</strong> = Bonus content<br>
+          • <span style="color: #81C784;">●</span> <strong>Light Green</strong> = Trailer<br>
+          • <span style="color: #4CAF50;">●</span> <strong>Green</strong> = Start nodes<br>
+          • <span style="color: #2196F3;">●</span> <strong>Blue</strong> = Regular choice nodes<br>
+          • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Stop nodes (not crawled further)<br>
+          • <span style="color: #FF9800;">●</span> <strong>Orange</strong> = Links to Part 2<br>
+          • <span style="color: #E91E63;">●</span> <strong>Pink</strong> = Loops back to start<br>
+          • <span style="color: #f44336;">●</span> <strong>Red</strong> = End nodes<br>
+          <br>
+          <strong>Highlight Colors:</strong><br>
+          • <span style="color: #9C27B0;">●</span> <strong>Purple</strong> = Outgoing nodes<br>
+          • <span style="color: #FFC107;">●</span> <strong>Gold</strong> = Direct incoming<br>
+          • <span style="color: #00BCD4;">●</span> <strong>Cyan</strong> = Indirect incoming
+        </div>
+      </details>
+    </div>
   </div>
   <div id="graph"></div>
+  <script>
+    (function() {
+      const controls = document.getElementById('controls');
+      const closeBtn = document.getElementById('closeMenuBtn');
+      const openBtn = document.getElementById('openMenuBtn');
+
+      function setCollapsed(collapsed) {
+        if (collapsed) {
+          controls.classList.add('collapsed');
+          openBtn.style.display = '';
+        } else {
+          controls.classList.remove('collapsed');
+          openBtn.style.display = 'none';
+        }
+      }
+
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        setCollapsed(true);
+      });
+      openBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        setCollapsed(false);
+      });
+
+      // Initialize: start expanded
+      setCollapsed(false);
+    })();
+  </script>
   <script src="graph.js"></script>
 </body>
 </html>
