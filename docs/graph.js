@@ -1,4 +1,4 @@
-(function() {
+(function () {
 	const width = 3000,
 		height = 2500;
 	const svg = d3.select('#graph').append('svg').attr('width', width).attr('height', height);
@@ -137,6 +137,19 @@
 			lines[lines.length - 1] = lines[lines.length - 1] + '…';
 		}
 		return lines;
+	}
+
+	function formatDuration(seconds) {
+		if (!seconds) return '';
+		const sec = parseInt(seconds);
+		const hours = Math.floor(sec / 3600);
+		const minutes = Math.floor((sec % 3600) / 60);
+		const secs = sec % 60;
+
+		if (hours > 0) {
+			return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+		}
+		return `${minutes}:${secs.toString().padStart(2, '0')}`;
 	}
 
 	function render(graph) {
@@ -539,7 +552,7 @@
 			.style('display', 'none')
 			.style('box-shadow', '0 2px 8px rgba(0,0,0,0.3)')
 			.text('Clear Lock')
-			.on('click', function() {
+			.on('click', function () {
 				isLocked = false;
 				lockedNodeId = null;
 				d3.select(this).style('display', 'none');
@@ -567,7 +580,7 @@
 		// Overlay a right-half fill for nodes that have multiple categories,
 		// but skip trailer/bonus. The overlay is inset and placed above the
 		// base fill but below the outline.
-		node.each(function(d, i) {
+		node.each(function (d, i) {
 			const g = d3.select(this);
 			const categories = getNodeCategories(d.data.id);
 			if (categories.length > 1 && !categories.includes('trailer') && !categories.includes('bonus')) {
@@ -605,7 +618,7 @@
 			.attr('stroke-width', 3)
 			.attr('class', 'node-outline');
 
-		node.each(function(d) {
+		node.each(function (d) {
 			const g = d3.select(this);
 			const titleLines = wrapText(d.data.title, 18);
 			titleLines.forEach((line, i) => {
@@ -617,7 +630,63 @@
 		const imgHeight = 45;
 		node.append('image').attr('href', d => d.data.thumbnail).attr('x', -imgWidth / 2).attr('y', -25).attr('width', imgWidth).attr('height', imgHeight).attr('clip-path', 'inset(0 round 6px)').attr('preserveAspectRatio', 'xMidYMid slice');
 
-		node.each(function(d) {
+		// Duration badge (YouTube-style with custom corner)
+		node.each(function (d) {
+			const duration = d.data.card_data?.lengthSeconds;
+			if (duration) {
+				const g = d3.select(this);
+				const durationText = formatDuration(duration);
+
+				// Badge dimensions
+				const textLength = durationText.length;
+				const badgeWidth = textLength * 2.8 + 4;
+				const badgeHeight = 7;
+				const badgeX = 40 - badgeWidth; // Right-aligned at x=40
+				const badgeY = 13;
+
+				// Corner radii
+				const normalRadius = 2;
+				const specialRadius = 6; // Bottom-right corner
+
+				// Create path with custom corners
+				const x = badgeX;
+				const y = badgeY;
+				const w = badgeWidth;
+				const h = badgeHeight;
+
+				const path = `
+			M ${x + normalRadius},${y}
+			L ${x + w - normalRadius},${y}
+			Q ${x + w},${y} ${x + w},${y + normalRadius}
+			L ${x + w},${y + h - specialRadius}
+			Q ${x + w},${y + h} ${x + w - specialRadius},${y + h}
+			L ${x + normalRadius},${y + h}
+			Q ${x},${y + h} ${x},${y + h - normalRadius}
+			L ${x},${y + normalRadius}
+			Q ${x},${y} ${x + normalRadius},${y}
+			Z
+		`;
+
+				// Badge background with custom corners
+				g.append('path')
+					.attr('d', path.trim())
+					.attr('fill', 'rgba(0, 0, 0, 0.8)')
+					.attr('class', 'duration-bg');
+
+				// Duration text (adjusted for perfect visual centering)
+				g.append('text')
+					.attr('x', badgeX + badgeWidth / 2)
+					.attr('y', badgeY + badgeHeight / 2 + 1.8) // Slight offset for visual centering
+					.attr('text-anchor', 'middle')
+					.attr('font-size', 5)
+					.attr('font-weight', 'bold')
+					.attr('fill', '#cccccc')
+					.attr('class', 'duration-text')
+					.text(durationText);
+			}
+		});
+
+		node.each(function (d) {
 			const desc = d.data.clean_description || '';
 			if (desc) {
 				const lines = wrapText(desc, 20);
@@ -630,7 +699,7 @@
 
 		node.append('title').text(d => `${d.data.title}\n${d.data.clean_description || ''}`);
 
-		node.on('mouseover', function(event, d) {
+		node.on('mouseover', function (event, d) {
 			// Respect temporary ignore window (set when clearing lock)
 			if (Date.now() < ignoreHoverUntil) return;
 			if (isLocked) return;
@@ -649,7 +718,7 @@
 				if (depth > 10 || visited.has(currentNodeId)) return;
 				visited.add(currentNodeId);
 				let currentNode = null;
-				node.each(function(nodeData) {
+				node.each(function (nodeData) {
 					if (nodeData.data.id === currentNodeId) currentNode = nodeData.data;
 				});
 				if (currentNode && currentNode.incoming_from) {
@@ -664,7 +733,7 @@
 			directIncomingIds.forEach(incomingId => {
 				if (!bonusVideoIds.has(incomingId)) findAllIncoming(incomingId);
 			});
-			node.each(function(nodeData) {
+			node.each(function (nodeData) {
 				const isOutgoing = outgoingIds.includes(nodeData.data.id);
 				const isDirectIncoming = directIncomingIds.has(nodeData.data.id);
 				const isIndirectIncoming = allIncomingIds.has(nodeData.data.id) && !isDirectIncoming;
@@ -684,7 +753,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			link.each(function(linkData) {
+			link.each(function (linkData) {
 				const isOutgoing = linkData.source === nodeId;
 				const isIncoming = linkData.target === nodeId;
 				if (isOutgoing) {
@@ -695,7 +764,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			bonusLink.each(function(linkData) {
+			bonusLink.each(function (linkData) {
 				const isOutgoing = linkData.source === nodeId;
 				const isIncoming = linkData.target === nodeId;
 				if (isOutgoing) {
@@ -706,7 +775,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			container.selectAll('.arrow-head').each(function(linkData) {
+			container.selectAll('.arrow-head').each(function (linkData) {
 				const isOutgoing = linkData && linkData.source === nodeId;
 				const isIncoming = linkData && linkData.target === nodeId;
 				if (isOutgoing) {
@@ -718,7 +787,7 @@
 				}
 			});
 			d3.select(this).select('.node-outline').attr('stroke', '#000').attr('stroke-width', 6);
-		}).on('mouseout', function() {
+		}).on('mouseout', function () {
 			if (isLocked) return;
 			node.style('opacity', 1);
 			link.style('opacity', 1);
@@ -728,7 +797,7 @@
 			link.attr('stroke', '#666').attr('stroke-width', 2);
 			bonusLink.attr('stroke', '#666').attr('stroke-width', 2);
 			container.selectAll('.arrow-head').attr('fill', '#666');
-		}).on('click', function(event, d) {
+		}).on('click', function (event, d) {
 			event.stopPropagation();
 
 			// Reset outlines/links/arrows to defaults before applying highlight
@@ -756,7 +825,7 @@
 				if (depth > 10 || visited.has(currentNodeId)) return;
 				visited.add(currentNodeId);
 				let currentNode = null;
-				node.each(function(nodeData) {
+				node.each(function (nodeData) {
 					if (nodeData.data.id === currentNodeId) currentNode = nodeData.data;
 				});
 				if (currentNode && currentNode.incoming_from) {
@@ -771,7 +840,7 @@
 			directIncomingIds.forEach(incomingId => {
 				if (!bonusVideoIds.has(incomingId)) findAllIncoming(incomingId);
 			});
-			node.each(function(nodeData) {
+			node.each(function (nodeData) {
 				const isOutgoing = outgoingIds.includes(nodeData.data.id);
 				const isDirectIncoming = directIncomingIds.has(nodeData.data.id);
 				const isIndirectIncoming = allIncomingIds.has(nodeData.data.id) && !isDirectIncoming;
@@ -791,7 +860,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			link.each(function(linkData) {
+			link.each(function (linkData) {
 				const isOutgoing = linkData.source === nodeId;
 				const isIncoming = linkData.target === nodeId;
 				if (isOutgoing) {
@@ -802,7 +871,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			bonusLink.each(function(linkData) {
+			bonusLink.each(function (linkData) {
 				const isOutgoing = linkData.source === nodeId;
 				const isIncoming = linkData.target === nodeId;
 				if (isOutgoing) {
@@ -813,7 +882,7 @@
 					d3.select(this).style('opacity', 0.2);
 				}
 			});
-			container.selectAll('.arrow-head').each(function(linkData) {
+			container.selectAll('.arrow-head').each(function (linkData) {
 				const isOutgoing = linkData && linkData.source === nodeId;
 				const isIncoming = linkData && linkData.target === nodeId;
 				if (isOutgoing) {
@@ -832,25 +901,25 @@
 			d3.select('#clear-lock-btn').style('display', 'block');
 		});
 
-		link.on('mouseover', function(event, d) {
+		link.on('mouseover', function (event, d) {
 			if (isLocked) return;
 			d3.select(this).attr('stroke', '#FF9800').attr('stroke-width', 4);
-			container.selectAll('.arrow-head').each(function(linkData) {
+			container.selectAll('.arrow-head').each(function (linkData) {
 				if (linkData && linkData.source === d.source && linkData.target === d.target) {
 					d3.select(this).attr('fill', '#FF9800');
 				}
 			});
-			node.each(function(nodeData) {
+			node.each(function (nodeData) {
 				if (nodeData.data.id === d.source || nodeData.data.id === d.target) {
 					d3.select(this).select('.node-outline').attr('stroke', '#FF9800').attr('stroke-width', 5);
 				}
 			});
-		}).on('mouseout', function() {
+		}).on('mouseout', function () {
 			if (isLocked) return;
 			d3.select(this).attr('stroke', '#666').attr('stroke-width', 2);
 			container.selectAll('.arrow-head').attr('fill', '#666');
 			node.selectAll('.node-outline').attr('stroke', '#333').attr('stroke-width', 3);
-		}).on('click', function(event, d) {
+		}).on('click', function (event, d) {
 			event.stopPropagation();
 			isLocked = true;
 			lockedNodeId = null;
@@ -859,19 +928,19 @@
 			this.dispatchEvent(mouseoverEvent);
 		});
 
-		bonusLink.on('mouseover', function(event, d) {
+		bonusLink.on('mouseover', function (event, d) {
 			if (isLocked) return;
 			d3.select(this).attr('stroke', '#FF9800').attr('stroke-width', 4);
-			node.each(function(nodeData) {
+			node.each(function (nodeData) {
 				if (nodeData.data.id === d.source || nodeData.data.id === d.target) {
 					d3.select(this).select('.node-outline').attr('stroke', '#FF9800').attr('stroke-width', 5);
 				}
 			});
-		}).on('mouseout', function() {
+		}).on('mouseout', function () {
 			if (isLocked) return;
 			d3.select(this).attr('stroke', '#666').attr('stroke-width', 2);
 			node.selectAll('.node-outline').attr('stroke', '#333').attr('stroke-width', 3);
-		}).on('click', function(event, d) {
+		}).on('click', function (event, d) {
 			event.stopPropagation();
 			isLocked = true;
 			lockedNodeId = null;
